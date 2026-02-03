@@ -1,0 +1,7 @@
+{
+  "name": "Tung",
+  "middle": "Van",
+  "family": "Le",
+  "birth": { "year": 2002, "month": 1, "day": 20 },
+  "scores": [7, 6.5, 8]
+}
