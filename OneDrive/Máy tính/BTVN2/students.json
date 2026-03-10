@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Ngoc",
+    "middle": "Ngoc",
+    "family": "Nguyen",
+    "birth": { "year": 2003, "month": 5, "day": 12 },
+    "scores": [8, 9, 7]
+  },
+  {
+    "name": "An",
+    "middle": "Minh",
+    "family": "Tran",
+    "birth": { "year": 2004, "month": 11, "day": 2 },
+    "scores": [9, 8.5, 10]
+  },
+  {
+    "name": "Tung",
+    "middle": "Van",
+    "family": "Le",
+    "birth": { "year": 2002, "month": 1, "day": 20 },
+    "scores": [7, 6.5, 8]
+  }
+]
