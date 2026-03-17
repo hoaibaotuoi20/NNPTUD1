@@ -15,11 +15,11 @@ module.exports = {
         }
 
         try {
-            
-            let result = jwt.verify(key, 'secretKey')
+            let publicKey = fs.readFileSync('public.pem');
+            let result = jwt.verify(key, publicKey, { algorithms: ['RS256'] })
             if (result.exp * 1000 < Date.now()) {
                 res.status(404).send("ban chua dang nhap")
-                return;s
+                return;
             }
             let user = await userController.GetUserById(result.id);
             if (!user) {

@@ -1,7 +1,7 @@
 var express = require("express");
 var router = express.Router();
 let userController = require('../controllers/users')
-let { RegisterValidator, validationResult } = require('../utils/validatorHandler')
+let { RegisterValidator, ChangePasswordValidator, validationResult } = require('../utils/validatorHandler')
 let { CheckLogin } = require('../utils/authHandler')
 let jwt = require('jsonwebtoken')
 let fs = require('fs')
@@ -34,9 +34,10 @@ router.post('/login', async function (req, res, next) {
             res.status(403).send("sai thong tin dang nhap");
             return;
         }
+        let privateKey = fs.readFileSync('private.pem');
         let token = jwt.sign({
             id:result._id
-        },'secretKey',{
+        },privateKey,{
             expiresIn:'1d',
             algorithm:'RS256'
         })
@@ -61,5 +62,21 @@ router.post('/logout', CheckLogin, function (req, res, next) {
     })
     res.send("da logout ")
 })
+
+router.post('/changepassword', CheckLogin, ChangePasswordValidator, validationResult, async function(req, res, next) {
+    try {
+        let { oldpassword, newpassword } = req.body;
+        let user = req.user;
+        let bcrypt = require('bcrypt');
+        if (!bcrypt.compareSync(oldpassword, user.password)) {
+            return res.status(400).send({ message: "Mat khau cu khong chinh xac" });
+        }
+        user.password = newpassword; 
+        await user.save();
+        res.send({ message: "Doi mat khau thanh cong" });
+    } catch (err) {
+         res.status(400).send({ message: err.message });
+    }
+});
 
 module.exports = router;
