@@ -3,18 +3,18 @@ var router = express.Router();
 let { CreateUserValidator, validationResult } = require('../utils/validatorHandler')
 let userModel = require("../schemas/users");
 let userController = require('../controllers/users')
+let {CheckLogin} = require('../utils/authHandler')
 
 
-
-router.get("/", async function (req, res, next) {
-  let users = await userModel
-    .find({ isDeleted: false })
-    .populate({
-      path: 'role',
-      select: 'name'
-    })
-  res.send(users);
-});
+router.get("/",CheckLogin, async function (req, res, next) {
+    let users = await userModel
+      .find({ isDeleted: false })
+      .populate({
+        path: 'role',
+        select: 'name'
+      })
+    res.send(users);
+  });
 
 router.get("/:id", async function (req, res, next) {
   try {

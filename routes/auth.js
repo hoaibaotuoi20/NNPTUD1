@@ -2,6 +2,7 @@ var express = require("express");
 var router = express.Router();
 let userController = require('../controllers/users')
 let { RegisterValidator, validationResult } = require('../utils/validatorHandler')
+let { CheckLogin } = require('../utils/authHandler')
 
 router.post('/register', RegisterValidator, validationResult, async function (req, res, next) {
     try {
@@ -22,7 +23,7 @@ router.post('/login', async function (req, res, next) {
             res.status(403).send("sai thong tin dang nhap");
             return;
         }
-        if(result.lockTime>Date.now()){
+        if (result.lockTime > Date.now()) {
             res.status(404).send("ban dang bi ban");
             return;
         }
@@ -31,12 +32,26 @@ router.post('/login', async function (req, res, next) {
             res.status(403).send("sai thong tin dang nhap");
             return;
         }
-        console.log(result);
+        res.cookie("LOGIN_NNPTUD_S3", result._id.toString().trimLeft().trimRight(), {
+            maxAge: 24 * 60 * 60 * 1000,
+            httpOnly: true
+        })
         res.send(result._id)
 
     } catch (err) {
         res.status(400).send({ message: err.message });
     }
+})
+router.get('/me', CheckLogin, function (req, res, next) {
+    let user = req.user;
+    res.send(user)
+})
+router.post('/logout', CheckLogin, function (req, res, next) {
+    res.cookie("LOGIN_NNPTUD_S3", "", {
+        maxAge: 0,
+        httpOnly: true
+    })
+    res.send("da logout")
 })
 
 module.exports = router;

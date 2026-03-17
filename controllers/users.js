@@ -24,18 +24,29 @@ module.exports = {
             username: username
         })
     },
-    CompareLogin: async function (user,password) {
-        if(bcrypt.compareSync(password,user.password)){
+    CompareLogin: async function (user, password) {
+        if (bcrypt.compareSync(password, user.password)) {
             user.loginCount = 0;
             await user.save()
             return user;
         }
         user.loginCount++;
-        if(user.loginCount==3){
-            user.lockTime = new Date(Date.now()+24*60*60*1000);
-            user.loginCount=0;
+        if (user.loginCount == 3) {
+            user.lockTime = new Date(Date.now() + 24 * 60 * 60 * 1000);
+            user.loginCount = 0;
         }
         await user.save()
         return false;
+    },
+    GetUserById: async function (id) {
+        try {
+            let user = await userModel.findOne({
+                _id: id,
+                isDeleted: false
+            })
+            return user;
+        } catch (error) {
+            return false;
+        }
     }
 }
