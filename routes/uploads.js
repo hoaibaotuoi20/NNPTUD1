@@ -9,6 +9,11 @@ let productModel = require('../schemas/products')
 let inventoryModel = require('../schemas/inventories')
 let categoryModel = require('../schemas/categories')
 let slugify = require('slugify')
+let userModel = require('../schemas/users')
+let roleModel = require('../schemas/roles')
+let userController = require('../controllers/users')
+let { sendImportMail } = require('../utils/mailHandler')
+let crypto = require('crypto')
 
 router.post('/an_image', uploadImage.single('file')
     , function (req, res, next) {
@@ -168,4 +173,98 @@ router.post('/excel', uploadExcel.single('file')
         }
 
     })
+
+router.post('/import_users', uploadExcel.single('file'), async function (req, res, next) {
+    if (!req.file) {
+        return res.status(400).send({ message: "Vui lòng chọn file Excel để import user" });
+    }
+
+    let filePath = path.join(__dirname, '../uploads', req.file.filename);
+    try {
+        let workBook = new exceljs.Workbook();
+        await workBook.xlsx.readFile(filePath);
+        let worksheet = workBook.worksheets[0];
+        let result = [];
+
+        // Tìm role mặc định là 'user' (không phân biệt hoa thường)
+        let defaultRole = await roleModel.findOne({ name: { $regex: /user/i } });
+        if (!defaultRole) {
+            // Fallback lấy role đầu tiên nếu không thấy 'user'
+            defaultRole = await roleModel.findOne({});
+        }
+
+        for (let index = 2; index <= worksheet.rowCount; index++) {
+            const row = worksheet.getRow(index);
+            let username = row.getCell(1).value;
+            let email = row.getCell(2).value;
+
+            // Xử lý dữ liệu username/email (lấy text nếu là hyperlink/object)
+            if (username && typeof username === 'object') username = username.text || username.result;
+            if (email && typeof email === 'object') email = email.text || email.result;
+
+            if (!username || !email) continue;
+
+            // Kiểm tra user tồn tại chưa
+            let existingUser = await userModel.findOne({ $or: [{ username }, { email }] });
+            if (existingUser) {
+                result.push({ row: index, username, success: false, message: "Username hoặc Email đã tồn tại" });
+                continue;
+            }
+
+            // Tạo password ngẫu nhiên chính xác 16 ký tự (8 bytes = 16 hex chars)
+            const rawPassword = crypto.randomBytes(8).toString('hex');
+
+            try {
+                // Tạo user mới (Không dùng session/transaction để tương thích với máy local)
+                await userController.CreateAnUser(
+                    username, 
+                    rawPassword, 
+                    email, 
+                    defaultRole ? defaultRole._id : undefined, 
+                    undefined, // session: null
+                    username, // fullName mặc định là username
+                    undefined, // avatar
+                    true // status: active
+                );
+
+                result.push({ 
+                    row: index, 
+                    username, 
+                    success: true, 
+                    data: { email, rawPassword } 
+                });
+            } catch (error) {
+                console.error("Lỗi dòng " + index + ":", error.message);
+                result.push({ row: index, username, success: false, message: error.message });
+            }
+        }
+
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        res.send({
+            message: "Hoàn tất quá trình import user",
+            total: result.length,
+            results: result
+        });
+
+        // CHẠY NGẦM: Gửi 99 email từ từ sau khi Postman đã hiện kết quả (Không làm đứng máy)
+        (async () => {
+            for (let r of result) {
+                if (r.success) {
+                    try {
+                        await sendImportMail(r.data.email, r.username, r.data.rawPassword);
+                        await new Promise(resolve => setTimeout(resolve, 500)); // Delay 0.5s chống Rate Limit
+                    } catch (err) {
+                        console.error("Lỗi gửi mail user " + r.username + ":", err.message);
+                    }
+                }
+            }
+        })();
+
+    } catch (error) {
+        let filePath = path.join(__dirname, '../uploads', req.file.filename);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        res.status(500).send({ message: "Lỗi xử lý import: " + error.message });
+    }
+});
+
 module.exports = router;
